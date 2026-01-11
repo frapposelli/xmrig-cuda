@@ -13,14 +13,9 @@ option(WITH_CN_PICO    "Enable CryptoNight-Pico algorithm" ON)
 option(WITH_CN_FEMTO   "Enable CryptoNight-UPX2 algorithm" ON)
 option(WITH_ARGON2     "Enable Argon2 algorithms family" OFF) #unsupported
 
-if (CUDA_VERSION VERSION_LESS 9.0)
-    message(STATUS "CUDA ${CUDA_VERSION}: RandomX and KawPow disabled, they do not work with old CUDA")
-    option(WITH_RANDOMX  "Enable RandomX algorithms family" OFF)
-    option(WITH_KAWPOW   "Enable KawPow algorithms family" OFF)
-else()
-    option(WITH_RANDOMX  "Enable RandomX algorithms family" ON)
-    option(WITH_KAWPOW   "Enable KawPow algorithms family" ON)
-endif()
+# CUDA 13+ always supports RandomX and KawPow
+option(WITH_RANDOMX  "Enable RandomX algorithms family" ON)
+option(WITH_KAWPOW   "Enable KawPow algorithms family" ON)
 
 if (WITH_CN_LITE)
     add_definitions(/DXMRIG_ALGO_CN_LITE)
@@ -101,11 +96,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED ${SOURCES})
 target_link_libraries(${CMAKE_PROJECT_NAME} xmrig-cu ${LIBS})
 
 if (WITH_DRIVER_API AND WIN32)
-    if (CUDA_VERSION VERSION_LESS 10.0)
-        file(GLOB NVRTCDLL "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvrtc64*.dll")
-    else()
-        file(GLOB NVRTCDLL "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvrtc64*_0.dll")
-    endif()
+    # CUDA 13 uses the same DLL naming as CUDA 10+
+    file(GLOB NVRTCDLL "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvrtc64*_0.dll")
 
     add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${NVRTCDLL}" $<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>)

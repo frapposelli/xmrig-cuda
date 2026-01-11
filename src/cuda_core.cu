@@ -104,45 +104,29 @@ typedef int IndexType;
 template< typename T >
 __device__ __forceinline__ T loadGlobal64( T * const addr )
 {
-#   if (__CUDA_ARCH__ < 700)
-    T x;
-    asm volatile( "ld.global.cg.u64 %0, [%1];" : "=l"( x ) : _ASM_PTR_(addr));
-    return x;
-#   else
+    // CUDA 13 only supports CC >= 7.5, use direct memory access
     return *addr;
-#   endif
 }
 
 template< typename T >
 __device__ __forceinline__ T loadGlobal32( T * const addr )
 {
-#   if (__CUDA_ARCH__ < 700)
-    T x;
-    asm volatile( "ld.global.cg.u32 %0, [%1];" : "=r"( x ) : _ASM_PTR_(addr));
-    return x;
-#   else
+    // CUDA 13 only supports CC >= 7.5, use direct memory access
     return *addr;
-#   endif
 }
 
 template< typename T >
 __device__ __forceinline__ void storeGlobal32( T* addr, T const & val )
 {
-#   if (__CUDA_ARCH__ < 700)
-    asm volatile( "st.global.cg.u32 [%0], %1;" : : _ASM_PTR_(addr), "r"( val ) );
-#   else
+    // CUDA 13 only supports CC >= 7.5, use direct memory access
     *addr = val;
-#   endif
 }
 
 template< typename T >
 __device__ __forceinline__ void storeGlobal64( T* addr, T const & val )
 {
-#   if (__CUDA_ARCH__ < 700)
-    asm volatile("st.global.cg.u64 [%0], %1;" : : _ASM_PTR_(addr), "l"(val));
-#   else
+    // CUDA 13 only supports CC >= 7.5, use direct memory access
     *addr = val;
-#   endif
 }
 
 template<size_t ITERATIONS, uint32_t MEM>
@@ -205,18 +189,10 @@ __forceinline__ __device__ void unusedVar( const T& )
 template<size_t group_n>
 __forceinline__ __device__ uint32_t shuffle(volatile uint32_t* ptr,const uint32_t sub,const int val,const uint32_t src)
 {
-#   if ( __CUDA_ARCH__ < 300 )
-    ptr[sub] = val;
-    return ptr[src & (group_n-1)];
-#   else
+    // CUDA 13 only supports CC >= 7.5, always use __shfl_sync
     unusedVar( ptr );
     unusedVar( sub );
-#   if (__CUDACC_VER_MAJOR__ >= 9)
     return __shfl_sync(__activemask(), val, src, group_n);
-#   else
-    return __shfl( val, src, group_n );
-#   endif
-#   endif
 }
 
 

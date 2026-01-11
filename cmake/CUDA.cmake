@@ -1,9 +1,8 @@
 set(MSG_CUDA_MAP "\n\n"
     "  Valid CUDA Toolkit Map:\n"
-    "   8.x for Fermi/Kepler          /Maxwell/Pascal,\n"
-    "   9.x for       Kepler          /Maxwell/Pascal/Volta,\n"
-    "  10.x for       Kepler          /Maxwell/Pascal/Volta/Turing,\n"
-    "  11.x for       Kepler (in part)/Maxwell/Pascal/Volta/Turing/Ampere\n\n"
+    "  13.x for Turing/Ampere/Ada/Blackwell,\n"
+    "  12.x for Turing/Ampere/Ada,\n"
+    "  11.x for Kepler (in part)/Maxwell/Pascal/Volta/Turing/Ampere\n\n"
     "Reference https://developer.nvidia.com/cuda-gpus#compute for arch and family name\n\n"
 )
 
@@ -14,34 +13,9 @@ if (XMRIG_LARGEGRID)
     add_definitions("-DXMRIG_LARGEGRID=${XMRIG_LARGEGRID}")
 endif()
 
-set(DEFAULT_CUDA_ARCH "50")
-
-# Fermi GPUs are only supported with CUDA < 9.0
-if (CUDA_VERSION VERSION_LESS 9.0)
-    list(APPEND DEFAULT_CUDA_ARCH "20;21")
-endif()
-
-# Kepler GPUs are only supported with CUDA < 11.0
-if (CUDA_VERSION VERSION_LESS 11.0)
-    list(APPEND DEFAULT_CUDA_ARCH "30")
-elseif (CUDA_VERSION VERSION_LESS 12.0)
-    list(APPEND DEFAULT_CUDA_ARCH "35")
-endif()
-
-# add Pascal support for CUDA >= 8.0
-if (NOT CUDA_VERSION VERSION_LESS 8.0)
-    list(APPEND DEFAULT_CUDA_ARCH "60")
-endif()
-
-# add Volta support for CUDA >= 9.0
-if (NOT CUDA_VERSION VERSION_LESS 9.0)
-    list(APPEND DEFAULT_CUDA_ARCH "70")
-endif()
-
-# add Turing support for CUDA >= 10.0
-if (NOT CUDA_VERSION VERSION_LESS 10.0)
-    list(APPEND DEFAULT_CUDA_ARCH "75")
-endif()
+# CUDA 13 only supports Turing (75) and newer architectures
+# Maxwell (50), Pascal (60), and Volta (70) were dropped in CUDA 13
+set(DEFAULT_CUDA_ARCH "75")
 
 # add Ampere support for CUDA >= 11.0
 if (NOT CUDA_VERSION VERSION_LESS 11.0)
@@ -69,49 +43,17 @@ foreach(CUDA_ARCH_ELEM ${CUDA_ARCH})
     string(REGEX MATCH "^[0-9]+$" IS_NUMBER ${CUDA_ARCH})
     if(NOT IS_NUMBER)
         message(FATAL_ERROR "Defined compute architecture '${CUDA_ARCH_ELEM}' in "
-                            "'${CUDA_ARCH}' is not an integral number, use e.g. '30' (for compute architecture 3.0).")
+                            "'${CUDA_ARCH}' is not an integral number, use e.g. '75' (for compute architecture 7.5).")
     endif()
     unset(IS_NUMBER)
 
-    if(${CUDA_ARCH_ELEM} LESS 20)
+    # CUDA 13 only supports Turing (75) and newer
+    # Maxwell (50), Pascal (60), and Volta (70) were dropped
+    if(${CUDA_ARCH_ELEM} LESS 75)
         message("${MSG_CUDA_MAP}")
-        message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified.")
-    endif()
-
-    if (NOT CUDA_VERSION VERSION_LESS 11.0)
-        if(${CUDA_ARCH_ELEM} LESS 35)
-            message("${MSG_CUDA_MAP}")
-            message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified. "
-                                "Use CUDA v10.x maximum, Kepler (30) was dropped at v11.")
-        endif()
-    else()
-        if(NOT ${CUDA_ARCH_ELEM} LESS 80)
-            message("${MSG_CUDA_MAP}")
-            message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified. "
-                                "Use CUDA v11.x minimum, Ampere (80) was added at v11.")
-        endif()
-    endif()
-
-    if (CUDA_VERSION VERSION_LESS 10.0)
-        if(NOT ${CUDA_ARCH_ELEM} LESS 75)
-            message("${MSG_CUDA_MAP}")
-            message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified. "
-                                "Use CUDA v10.x minimum, Turing (75) was added at v10.")
-        endif()
-    endif()
-
-    if (NOT CUDA_VERSION VERSION_LESS 9.0)
-        if(${CUDA_ARCH_ELEM} LESS 30)
-            message("${MSG_CUDA_MAP}")
-            message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified. "
-                                "Use CUDA v8.x maximum, Fermi (20/21) was dropped at v9.")
-        endif()
-    else()
-        if(NOT ${CUDA_ARCH_ELEM} LESS 70)
-            message("${MSG_CUDA_MAP}")
-            message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified. "
-                                "Use CUDA v9.x minimum, Volta (70/72) was added at v9.")
-        endif()
+        message(FATAL_ERROR "Unsupported CUDA architecture '${CUDA_ARCH_ELEM}' specified. "
+                            "CUDA 13.x requires Turing (75) or newer. "
+                            "Maxwell (50), Pascal (60), and Volta (70) are no longer supported.")
     endif()
 endforeach()
 
@@ -172,28 +114,15 @@ if("${CUDA_COMPILER}" STREQUAL "clang")
     endforeach()
 
 elseif("${CUDA_COMPILER}" STREQUAL "nvcc")
-    # avoid that nvcc in CUDA < 8 tries to use libc `memcpy` within the kernel
-    if (CUDA_VERSION VERSION_LESS 8.0)
-        add_definitions(-D_FORCE_INLINES)
-        add_definitions(-D_MWAITXINTRIN_H_INCLUDED)
-    endif()
-
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "-Wno-deprecated-gpu-targets")
 
-    if (NOT CUDA_VERSION VERSION_LESS 11.3)
-        set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--threads 0")
-    endif()
+    # CUDA 13 is always >= 11.3, so always use multi-threaded compilation
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--threads 0")
 
     foreach(CUDA_ARCH_ELEM ${CUDA_ARCH})
         # set flags to create device code for the given architecture
-        if("${CUDA_ARCH_ELEM}" STREQUAL "21")
-            # "2.1" actually does run faster when compiled as itself, versus in "2.0" compatible mode
-            # strange virtual code type on top of compute_20, with no compute_21 (so the normal rule fails)
-            set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} "--generate-code arch=compute_20,code=sm_21")
-        else()
-            set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
-                    "--generate-code arch=compute_${CUDA_ARCH_ELEM},code=sm_${CUDA_ARCH_ELEM} --generate-code arch=compute_${CUDA_ARCH_ELEM},code=compute_${CUDA_ARCH_ELEM}")
-        endif()
+        set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
+                "--generate-code arch=compute_${CUDA_ARCH_ELEM},code=sm_${CUDA_ARCH_ELEM} --generate-code arch=compute_${CUDA_ARCH_ELEM},code=compute_${CUDA_ARCH_ELEM}")
     endforeach()
 
     # give each thread an independent default stream

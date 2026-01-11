@@ -1,3 +1,15 @@
+# v6.23.0
+- **BREAKING CHANGE**: Minimum CUDA version is now 13.0 (previously 8.0).
+- **BREAKING CHANGE**: Dropped support for Maxwell (CC 5.0), Pascal (CC 6.0), and Volta (CC 7.0) GPU architectures.
+- Minimum supported GPU is now Turing (CC 7.5) or newer: RTX 20xx/30xx/40xx, GTX 16xx series.
+- Removed bundled CUB library (now uses CUDA Toolkit's built-in CUB from CCCL 3.0).
+- Removed legacy code paths for CUDA < 9.0 and compute capability < 7.0.
+- Simplified shuffle operations to use only `__shfl_sync()` (legacy `__shfl()` removed).
+- Always use multi-threaded NVCC compilation (`--threads 0`).
+- Updated NVRTC DLL handling for Windows.
+- Fixed CUDA 13 compatibility: replaced deprecated `cudaDeviceProp::clockRate` and `cudaDeviceProp::memoryClockRate` with `cudaDeviceGetAttribute()` API.
+- **Note**: Users with Maxwell, Pascal, or Volta GPUs must use CUDA 12 or earlier versions.
+
 # v6.22.1
 - [#205](https://github.com/xmrig/xmrig-cuda/pull/205) Fixed RandomX dataset update. Fix works together with the updated XMRig.
 
